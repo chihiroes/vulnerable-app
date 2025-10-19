@@ -1,0 +1,40 @@
+name: Simple CI Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v4
+
+    - name: 设置 Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: 安装依赖
+      run: |
+        pip install -r requirements.txt
+
+    - name: 检查 requests 版本
+      run: |
+        python -c "import requests; print('当前requests版本:', requests.__version__)"
+
+    - name: 运行应用测试
+      run: python app.py
+
+    - name: 基础功能测试
+      run: |
+        python -c "
+        import requests
+        r = requests.get('https://httpbin.org/get')
+        print('状态码:', r.status_code)
+        print('测试通过!')
+        "
