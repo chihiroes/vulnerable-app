@@ -1,0 +1,77 @@
+name: CI Pipeline for Vulnerability Lab
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, 3.10, 3.11]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Verify requests version
+      run: |
+        python -c "import requests; print('Current requests version:', requests.__version__)"
+        if python -c "import requests; assert requests.__version__ == '2.19.0'"; then
+          echo "✅ 使用的是有漏洞的 requests 2.19.0 版本"
+        else
+          echo "⚠️  版本已更新，当前版本: $(python -c 'import requests; print(requests.__version__)')"
+        fi
+
+    - name: Run application test
+      run: python app.py
+
+    - name: Basic functionality test
+      run: |
+        python -c "
+        import requests
+        response = requests.get('https://httpbin.org/get', timeout=10)
+        print('Status Code:', response.status_code)
+        print('Response received successfully!')
+        "
+
+  security-scan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Run safety security scan
+      run: |
+        pip install safety
+        echo "🔍 开始安全扫描..."
+        safety check --file=requirements.txt --output short || true
+
+    - name: Security audit with pip-audit
+      run: |
+        pip install pip-audit
+        pip-audit -r requirements.txt || true
